@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# Allow React frontend to talk to backend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,7 +20,6 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
     if room_id not in rooms:
         rooms[room_id] = set()
 
-    # Reject if room already has 2 users
     if len(rooms[room_id]) >= 2:
         await websocket.send_text("ROOM_FULL")
         await websocket.close()
@@ -37,6 +35,10 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
                     await conn.send_text(data)
     except WebSocketDisconnect:
         rooms[room_id].remove(websocket)
+
+        # Notify the other participant that their peer left
+        for conn in rooms.get(room_id, []):
+            await conn.send_text('{"type": "peer_left"}')
+
         if not rooms[room_id]:
             del rooms[room_id]
-
